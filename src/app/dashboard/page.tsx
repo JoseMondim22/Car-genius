@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { dateKey, formatHours, formatTime, hoursBetween, parseLocalDate } from "@/lib/hours";
+import { dateKey, formatDate, formatHours, formatTime, hoursBetween, parseLocalDate } from "@/lib/hours";
+import { resolveScheduleFor } from "@/lib/reports";
 import AppShell from "@/components/AppShell";
 import TodayClockCard from "@/components/TodayClockCard";
 
 const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const UPCOMING_DAYS = 7;
 
 function startOfWeek(date: Date) {
   const d = new Date(date);
@@ -56,10 +58,51 @@ export default async function DashboardPage({
     0
   );
 
+  const mySchedules = await prisma.schedule.findMany({ where: { userId: session.userId } });
+  const scheduleRows = mySchedules.map((s) => ({
+    userId: s.userId,
+    dayOfWeek: s.dayOfWeek,
+    date: s.date ? s.date.toISOString().slice(0, 10) : null,
+    startTime: s.startTime,
+    endTime: s.endTime,
+  }));
+
+  const todayDate = new Date();
+  const upcomingDays = Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(todayDate, i));
+  const upcomingSchedule = upcomingDays.map((day) => {
+    const key = dateKey(day);
+    return {
+      date: day,
+      key,
+      schedule: resolveScheduleFor(scheduleRows, session.userId, day.getDay(), key),
+    };
+  });
+
   return (
     <AppShell session={session}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <TodayClockCard isClockedIn={Boolean(openEntry)} hoursToday={hoursToday} />
+
+        <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+          <h2 className="mb-4 text-base font-semibold text-neutral-900">Mi horario</h2>
+          <ul className="divide-y divide-neutral-100 text-sm">
+            {upcomingSchedule.map(({ date, key, schedule }, i) => (
+              <li key={key} className="flex items-center justify-between py-2">
+                <span className={i === 0 ? "font-medium text-neutral-900" : "text-neutral-600"}>
+                  {i === 0 ? "Hoy" : DAY_LABELS[(date.getDay() + 6) % 7]} · {formatDate(date)}
+                </span>
+                {schedule ? (
+                  <span className="font-medium text-neutral-900">
+                    {schedule.startTime} – {schedule.endTime}
+                    {schedule.date && <span className="ml-1 text-xs text-neutral-400">(especial)</span>}
+                  </span>
+                ) : (
+                  <span className="text-neutral-400">Sin horario asignado</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <div className="rounded-2xl border border-neutral-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between">

@@ -23,18 +23,27 @@ export type DayRow = {
   scheduledHours: number;
 };
 
-function hoursOf(schedule: ScheduleRow) {
+export function hoursOf(schedule: ScheduleRow) {
   const [sh, sm] = schedule.startTime.split(":").map(Number);
   const [eh, em] = schedule.endTime.split(":").map(Number);
   return eh + em / 60 - (sh + sm / 60);
 }
 
-function scheduledHoursFor(schedules: ScheduleRow[], userId: string, dayOfWeek: number, day: string) {
+export function resolveScheduleFor(
+  schedules: ScheduleRow[],
+  userId: string,
+  dayOfWeek: number,
+  day: string
+): ScheduleRow | null {
   const override = schedules.find((s) => s.userId === userId && s.date === day);
-  if (override) return hoursOf(override);
+  if (override) return override;
 
-  const base = schedules.find((s) => s.userId === userId && s.date === null && s.dayOfWeek === dayOfWeek);
-  return base ? hoursOf(base) : 0;
+  return schedules.find((s) => s.userId === userId && s.date === null && s.dayOfWeek === dayOfWeek) ?? null;
+}
+
+function scheduledHoursFor(schedules: ScheduleRow[], userId: string, dayOfWeek: number, day: string) {
+  const schedule = resolveScheduleFor(schedules, userId, dayOfWeek, day);
+  return schedule ? hoursOf(schedule) : 0;
 }
 
 export function buildDailyReport(entries: ReportEntry[], schedules: ScheduleRow[]): DayRow[] {
