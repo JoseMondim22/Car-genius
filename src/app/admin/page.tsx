@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { buildDailyReport } from "@/lib/reports";
 import { formatDate, formatHours, parseLocalDate } from "@/lib/hours";
-import LogoutButton from "@/components/LogoutButton";
+import AppShell from "@/components/AppShell";
 
 function startOfDay(date: Date) {
   const d = new Date(date);
@@ -23,6 +22,7 @@ export default async function AdminReportsPage({
   searchParams: Promise<{ userId?: string; from?: string; to?: string }>;
 }) {
   const session = await getSession();
+  if (!session) return null;
   const params = await searchParams;
 
   const from = params.from ? startOfDay(new Date(params.from)) : daysAgo(6);
@@ -63,25 +63,9 @@ export default async function AdminReportsPage({
   const totalScheduled = rows.reduce((sum, r) => sum + r.scheduledHours, 0);
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Panel de administración</h1>
-          <p className="text-sm text-neutral-500">Hola, {session?.name}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-sm text-neutral-600 underline">
-            Mi horario
-          </Link>
-          <Link href="/admin/employees" className="text-sm text-neutral-600 underline">
-            Trabajadores
-          </Link>
-          <Link href="/admin/schedules" className="text-sm text-neutral-600 underline">
-            Horarios
-          </Link>
-          <LogoutButton />
-        </div>
-      </header>
+    <AppShell session={session}>
+      <div className="mx-auto w-full max-w-5xl">
+      <h1 className="mb-6 text-xl font-semibold">Reportes</h1>
 
       <form className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-white p-4">
         <div>
@@ -163,6 +147,7 @@ export default async function AdminReportsPage({
           </tbody>
         </table>
       </div>
-    </main>
+      </div>
+    </AppShell>
   );
 }

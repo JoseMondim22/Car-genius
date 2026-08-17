@@ -1,4 +1,4 @@
-import { hoursBetween } from "@/lib/hours";
+import { dateKey, hoursBetween } from "@/lib/hours";
 
 export type ReportEntry = {
   userId: string;
@@ -21,13 +21,6 @@ export type DayRow = {
   workedHours: number;
   scheduledHours: number;
 };
-
-function dateKey(d: Date) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function scheduledHoursFor(schedules: ScheduleRow[], userId: string, dayOfWeek: number) {
   return schedules
