@@ -3,15 +3,36 @@
 import { useEffect, useState } from "react";
 
 type Employee = { id: string; name: string; role: "ADMIN" | "EMPLOYEE" };
-type Schedule = { id: string; userId: string; dayOfWeek: number; startTime: string; endTime: string };
+type Schedule = {
+  id: string;
+  userId: string;
+  dayOfWeek: number;
+  date: string | null;
+  startTime: string;
+  endTime: string;
+};
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+function formatScheduleDate(date: string) {
+  return new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(date));
+}
+
+function sortSchedules(schedules: Schedule[]) {
+  return [...schedules].sort((a, b) => {
+    if (Boolean(a.date) !== Boolean(b.date)) return a.date ? 1 : -1;
+    if (a.date && b.date) return a.date < b.date ? -1 : 1;
+    return a.dayOfWeek - b.dayOfWeek;
+  });
+}
 
 export default function SchedulesView() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [userId, setUserId] = useState("");
+  const [scheduleType, setScheduleType] = useState<"base" | "special">("base");
   const [dayOfWeek, setDayOfWeek] = useState(1);
+  const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [error, setError] = useState("");
@@ -39,10 +60,20 @@ export default function SchedulesView() {
     e.preventDefault();
     setError("");
 
+    if (scheduleType === "special" && !date) {
+      setError("Elegí una fecha para el horario especial");
+      return;
+    }
+
+    const body =
+      scheduleType === "base"
+        ? { userId, dayOfWeek, startTime, endTime }
+        : { userId, date, startTime, endTime };
+
     const res = await fetch("/api/schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, dayOfWeek, startTime, endTime }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -82,19 +113,42 @@ export default function SchedulesView() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-neutral-600">Día</label>
+          <label className="mb-1 block text-xs font-medium text-neutral-600">Tipo</label>
           <select
-            value={dayOfWeek}
-            onChange={(e) => setDayOfWeek(Number(e.target.value))}
+            value={scheduleType}
+            onChange={(e) => setScheduleType(e.target.value as "base" | "special")}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
           >
-            {DAYS.map((day, i) => (
-              <option key={day} value={i}>
-                {day}
-              </option>
-            ))}
+            <option value="base">Base (recurrente)</option>
+            <option value="special">Especial (una fecha)</option>
           </select>
         </div>
+        {scheduleType === "base" ? (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600">Día</label>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+            >
+              {DAYS.map((day, i) => (
+                <option key={day} value={i}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600">Fecha</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
+            />
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-600">Entrada</label>
           <input
@@ -117,7 +171,7 @@ export default function SchedulesView() {
           type="submit"
           className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
         >
-          Agregar horario
+          Guardar horario
         </button>
         {error && <p className="w-full text-sm text-red-600">{error}</p>}
       </form>
@@ -141,10 +195,21 @@ export default function SchedulesView() {
                 </td>
               </tr>
             )}
-            {schedules.map((s) => (
+            {sortSchedules(schedules).map((s) => (
               <tr key={s.id}>
                 <td className="px-4 py-2">{employees.find((e) => e.id === s.userId)?.name ?? "—"}</td>
-                <td className="px-4 py-2">{DAYS[s.dayOfWeek]}</td>
+                <td className="px-4 py-2">
+                  {s.date ? (
+                    <>
+                      {formatScheduleDate(s.date)}{" "}
+                      <span className="text-xs text-neutral-400">(especial)</span>
+                    </>
+                  ) : (
+                    <>
+                      {DAYS[s.dayOfWeek]} <span className="text-xs text-neutral-400">(base)</span>
+                    </>
+                  )}
+                </td>
                 <td className="px-4 py-2">{s.startTime}</td>
                 <td className="px-4 py-2">{s.endTime}</td>
                 <td className="px-4 py-2 text-right">

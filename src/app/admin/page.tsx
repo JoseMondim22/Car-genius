@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { buildDailyReport } from "@/lib/reports";
-import { formatDate, formatHours, parseLocalDate } from "@/lib/hours";
+import { dateKey, formatDate, formatHours, parseLocalDate } from "@/lib/hours";
 import AppShell from "@/components/AppShell";
 
 function startOfDay(date: Date) {
@@ -25,8 +25,8 @@ export default async function AdminReportsPage({
   if (!session) return null;
   const params = await searchParams;
 
-  const from = params.from ? startOfDay(new Date(params.from)) : daysAgo(6);
-  const to = params.to ? startOfDay(new Date(params.to)) : startOfDay(new Date());
+  const from = params.from ? parseLocalDate(params.from) : daysAgo(6);
+  const to = params.to ? parseLocalDate(params.to) : startOfDay(new Date());
   const toExclusive = new Date(to);
   toExclusive.setDate(toExclusive.getDate() + 1);
 
@@ -56,7 +56,13 @@ export default async function AdminReportsPage({
       clockIn: e.clockIn,
       clockOut: e.clockOut,
     })),
-    schedules
+    schedules.map((s) => ({
+      userId: s.userId,
+      dayOfWeek: s.dayOfWeek,
+      date: s.date ? s.date.toISOString().slice(0, 10) : null,
+      startTime: s.startTime,
+      endTime: s.endTime,
+    }))
   );
 
   const totalWorked = rows.reduce((sum, r) => sum + r.workedHours, 0);
@@ -88,7 +94,7 @@ export default async function AdminReportsPage({
           <input
             type="date"
             name="from"
-            defaultValue={from.toISOString().slice(0, 10)}
+            defaultValue={dateKey(from)}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
           />
         </div>
@@ -97,7 +103,7 @@ export default async function AdminReportsPage({
           <input
             type="date"
             name="to"
-            defaultValue={to.toISOString().slice(0, 10)}
+            defaultValue={dateKey(to)}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
           />
         </div>

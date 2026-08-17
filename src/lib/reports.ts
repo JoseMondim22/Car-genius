@@ -10,6 +10,7 @@ export type ReportEntry = {
 export type ScheduleRow = {
   userId: string;
   dayOfWeek: number;
+  date: string | null;
   startTime: string;
   endTime: string;
 };
@@ -22,14 +23,18 @@ export type DayRow = {
   scheduledHours: number;
 };
 
-function scheduledHoursFor(schedules: ScheduleRow[], userId: string, dayOfWeek: number) {
-  return schedules
-    .filter((s) => s.userId === userId && s.dayOfWeek === dayOfWeek)
-    .reduce((sum, s) => {
-      const [sh, sm] = s.startTime.split(":").map(Number);
-      const [eh, em] = s.endTime.split(":").map(Number);
-      return sum + (eh + em / 60 - (sh + sm / 60));
-    }, 0);
+function hoursOf(schedule: ScheduleRow) {
+  const [sh, sm] = schedule.startTime.split(":").map(Number);
+  const [eh, em] = schedule.endTime.split(":").map(Number);
+  return eh + em / 60 - (sh + sm / 60);
+}
+
+function scheduledHoursFor(schedules: ScheduleRow[], userId: string, dayOfWeek: number, day: string) {
+  const override = schedules.find((s) => s.userId === userId && s.date === day);
+  if (override) return hoursOf(override);
+
+  const base = schedules.find((s) => s.userId === userId && s.date === null && s.dayOfWeek === dayOfWeek);
+  return base ? hoursOf(base) : 0;
 }
 
 export function buildDailyReport(entries: ReportEntry[], schedules: ScheduleRow[]): DayRow[] {
@@ -43,12 +48,13 @@ export function buildDailyReport(entries: ReportEntry[], schedules: ScheduleRow[
     if (existing) {
       existing.workedHours += worked;
     } else {
+      const day = dateKey(entry.clockIn);
       byKey.set(key, {
         userId: entry.userId,
         userName: entry.userName,
-        date: dateKey(entry.clockIn),
+        date: day,
         workedHours: worked,
-        scheduledHours: scheduledHoursFor(schedules, entry.userId, entry.clockIn.getDay()),
+        scheduledHours: scheduledHoursFor(schedules, entry.userId, entry.clockIn.getDay(), day),
       });
     }
   }
