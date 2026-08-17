@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+model User {
+  id           String      @id @default(cuid())
+  name         String
+  username     String      @unique
+  passwordHash String
+  role         Role        @default(EMPLOYEE)
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  timeEntries  TimeEntry[]
+  schedules    Schedule[]
+}
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  clockIn   DateTime
+  clockOut  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Schedule {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  dayOfWeek Int
+  startTime String
+  endTime   String
+
+  @@index([userId])
+}
